@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "demo"
+version = "0.1.0"
+description = ""
+authors = []
+
+[tool.poetry.dependencies]
+python = "^3.11"
+SQLAlchemy = { version = "^1.4.52", extras = [
+  "postgresql_asyncpg",
+  "postgresql_psycopg2binary",
+  "asyncio"
+] }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
