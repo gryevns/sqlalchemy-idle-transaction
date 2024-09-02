@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import time
 
 from sqlalchemy import Column
 from sqlalchemy import DateTime
@@ -7,6 +8,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import func
 from sqlalchemy import Integer
 from sqlalchemy import String
+from sqlalchemy.exc import MissingGreenlet
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.future import select
@@ -40,6 +42,9 @@ class UnitOfWorkFactory():
         uow = self._session_factory()
         try:
             yield uow
+        except MissingGreenlet:
+            await uow.invalidate()
+            raise
         finally:
             await uow.rollback()
             await uow.close()
@@ -66,15 +71,14 @@ async def async_main():
         uow.add(Parent(children=[Child()]))
         await uow.commit()
 
-    try:
-        async with uow_factory() as uow:
-            stmt = select(Parent).with_for_update(of=Parent)
-            result = await uow.execute(stmt)
-            for item in result.scalars():
-                item.data = "updated"
-                item.children  # Raises sqlalchemy.exc.MissingGreenlet
-    except:
-        await asyncio.sleep(30)
-        raise
+    async with uow_factory() as uow:
+        stmt = select(Parent).with_for_update(of=Parent)
+        result = await uow.execute(stmt)
+        for item in result.scalars():
+            item.data = "updated"
+            item.children  # Raises sqlalchemy.exc.MissingGreenlet
 
-asyncio.run(async_main())
+try:
+    asyncio.run(async_main())
+except:
+    time.sleep(30)
